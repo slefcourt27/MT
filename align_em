@@ -17,6 +17,11 @@ e_data = "%s.%s" % (opts.train, opts.english)
 sys.stderr.write("Training with EM...")
 bitext = [[sentence.strip().split() for sentence in pair] for pair in zip(open(f_data), open(e_data))][:opts.num_sents]
 
+# bitext = []
+# for pair in zip(open(f_data), open(e_data))[:opts.num_sents]:
+#   for sentence in pair: 
+#     bitext.append(sentence.strip().split())
+
 f_count = defaultdict(int)
 e_count = defaultdict(int)
 fe_count = defaultdict(int)
