@@ -22,6 +22,7 @@ e_count = defaultdict(int)
 fe_count = defaultdict(int)
 
 theta = {}
+null_constant = 5 # amount of null words added to each source sentence
 
 # sentence, foreign sentence, english sentence in all
 for (n, (f, e)) in enumerate(bitext):
@@ -66,7 +67,9 @@ while iter < 6:
             for f_i in set(f):
 # 1. initialize model parameters (e.g. uniform)
                 if (f_i, e_j) not in theta.keys():
-                    theta[(f_i, e_j)] = 1/len(f_count.keys()) # size of french vocabulary
+                    theta[(f_i, e_j)] = 1/(len(f_count.keys()) + 1) # size of french vocabulary + NULL word
+                    # Add null word in foreign language vocabulary
+                    theta[(None, e_j)] = [1/(len(f_count.keys()) + 1)] * null_constant
 
                 e_count[e_j] += theta[(f_i, e_j)]
 
@@ -77,8 +80,14 @@ while iter < 6:
 # 3. estimate model parameters from completed data
     for f_i in f_count.keys():
         for e_j in e_count.keys():
-            theta[(f_i, e_j)] = fe_count[(f_i, e_j)] / f_count[f_i]
+            # Smoothing such that the rare words are not calculate with too much confidence
+            # According to paper https://aclanthology.org/P04-1066.pdf
+            theta[(f_i, e_j)] = (fe_count[(f_i, e_j)] + null_constant) / (f_count[f_i] + null_constant * len(f_count.keys()))
     iter += 1
+
+# Additions
+# giving extra weight to the probability of alignment
+# to the null word,
 
 # Decoding function
 # TODO: NULL at 0 position
@@ -90,11 +99,13 @@ for (f, e) in bitext:
     for (j, e_j) in enumerate(e):
       if (f_i, e_j) not in theta.keys():
           continue
+
       if theta[(f_i, e_j)] > max:
         max = theta[(f_i, e_j)]
         subscript = j
 
-    sys.stdout.write("%i-%i " % (i,subscript))
+    if e[subscript] is not None:
+        sys.stdout.write("%i-%i " % (i,subscript))
   sys.stdout.write("\n")
 
 # Referenced http://mt-class.org/jhu/assets/papers/alopez-model1-tutorial.pdf
