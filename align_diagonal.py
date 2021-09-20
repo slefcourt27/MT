@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+print#!/usr/bin/env python
 import optparse
 import sys
 from collections import defaultdict
@@ -13,16 +13,16 @@ optparser.add_option("-n", "--num_sentences", dest="num_sents", default=10000000
 f_data = "%s.%s" % (opts.train, opts.french)
 e_data = "%s.%s" % (opts.train, opts.english)
 
-
-sys.stderr.write("Training with EM...")
 bitext = [[sentence.strip().split() for sentence in pair] for pair in zip(open(f_data), open(e_data))][:opts.num_sents]
-
 f_count = defaultdict(int)
 e_count = defaultdict(int)
 fe_count = defaultdict(int)
+theta = defaultdict(float)
+null_constant = 4 # amount of null words added to each source sentence
 
-theta = {}
-null_constant = 5 # amount of null words added to each source sentence
+
+# Get count of unique foreign words
+
 
 # sentence, foreign sentence, english sentence in all
 for (n, (f, e)) in enumerate(bitext):
@@ -35,46 +35,50 @@ for (n, (f, e)) in enumerate(bitext):
     for e_j in set(e):
       fe_count[(f_i,e_j)] += 1
 
-
-
   for e_j in set(e):
     e_count[e_j] += 1
 
   if n % 500 == 0:
     sys.stderr.write(".")
+
 #
 # print(bitext[0][0])
 # print(bitext[0][1])
 
-# Expectation Maximization (EM) in a nutshell
+# Expectation Maximization (EM)
 
+vocab_size = len(f_count.keys())
+# initialize model parameters
+# 1. initialize model parameters (e.g. uniform)
+
+for key in fe_count.keys():
+    theta[key] = 1/vocab_size # size of french vocabulary + NULL word
+    # Add null word in foreign language vocabulary
+    theta[(None, key[1])] = [1/vocab_size] * null_constant
 # 2. assign probabilities to the missing data
 iter = 0
-sys.stderr.write("Keys in f: " + str(len(f_count.keys())))
-while iter < 6:
-    for key in fe_count.keys():
-        fe_count[key] = 0
+while iter < 3:
 
-    for key in f_count.keys():
-        f_count[key] = 0
+    idx = 0
+    pair_count = len(fe_count.keys())
+    fe_count = fe_count.fromkeys(fe_count, 0)
+    f_count = f_count.fromkeys(f_count, 0)
+    # while idx < pair_count and idx < vocab_size:
+    #     if idx < pair_count:
+    #         fe_count.keys()[idx] = 0
+    #     if idx < vocab_size:
+    #         f_count.keys()[idx] = 0
+    #
+    #     idx += 1
+
 
     for (n, (f, e)) in enumerate(bitext):
 
-        for key in e_count.keys(): # for all sent pairs set total_s [e] = 0
-            e_count[key] = 0
+        e_count = e_count.fromkeys(e_count, 0)
 
         for e_j in set(e):
             for f_i in set(f):
-# 1. initialize model parameters (e.g. uniform)
-                if (f_i, e_j) not in theta.keys():
-                    theta[(f_i, e_j)] = 1/(len(f_count.keys()) + 1) # size of french vocabulary + NULL word
-                    # Add null word in foreign language vocabulary
-                    theta[(None, e_j)] = [1/(len(f_count.keys()) + 1)] * null_constant
-
                 e_count[e_j] += theta[(f_i, e_j)]
-
-        for e_j in set(e):
-            for f_i in set(f):
                 fe_count[(f_i, e_j)] += theta[(f_i, e_j)] / e_count[e_j]
                 f_count[f_i] += theta[(f_i, e_j)] / e_count[e_j]
 # 3. estimate model parameters from completed data
@@ -82,7 +86,9 @@ while iter < 6:
         for e_j in e_count.keys():
             # Smoothing such that the rare words are not calculate with too much confidence
             # According to paper https://aclanthology.org/P04-1066.pdf
-            theta[(f_i, e_j)] = (fe_count[(f_i, e_j)] + null_constant) / (f_count[f_i] + null_constant * len(f_count.keys()))
+            print(fe_count[(f_i, e_j)])
+            theta[(f_i, e_j)] = (fe_count[(f_i, e_j)] + null_constant) / (f_count[f_i] + null_constant * vocab_size)
+
     iter += 1
 
 # Additions
