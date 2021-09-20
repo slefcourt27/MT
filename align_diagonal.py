@@ -46,7 +46,6 @@ for (n, (f, e)) in enumerate(bitext):
 # print(bitext[0][1])
 
 # Expectation Maximization (EM)
-
 vocab_size = len(f_count.keys())
 # initialize model parameters
 # 1. initialize model parameters (e.g. uniform)
@@ -61,8 +60,8 @@ while iter < 3:
 
     idx = 0
     pair_count = len(fe_count.keys())
-    fe_count = fe_count.fromkeys(fe_count, 0)
-    f_count = f_count.fromkeys(f_count, 0)
+    fe_count = defaultdict(int, fe_count.fromkeys(fe_count, 0))
+    f_count = defaultdict(int, f_count.fromkeys(f_count, 0))
     # while idx < pair_count and idx < vocab_size:
     #     if idx < pair_count:
     #         fe_count.keys()[idx] = 0
@@ -71,10 +70,9 @@ while iter < 3:
     #
     #     idx += 1
 
-
     for (n, (f, e)) in enumerate(bitext):
 
-        e_count = e_count.fromkeys(e_count, 0)
+        e_count = defaultdict(int, e_count.fromkeys(e_count, 0))
 
         for e_j in set(e):
             for f_i in set(f):
@@ -86,7 +84,6 @@ while iter < 3:
         for e_j in e_count.keys():
             # Smoothing such that the rare words are not calculate with too much confidence
             # According to paper https://aclanthology.org/P04-1066.pdf
-            print(fe_count[(f_i, e_j)])
             theta[(f_i, e_j)] = (fe_count[(f_i, e_j)] + null_constant) / (f_count[f_i] + null_constant * vocab_size)
 
     iter += 1
