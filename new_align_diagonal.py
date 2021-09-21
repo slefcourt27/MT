@@ -20,6 +20,7 @@ sys.stderr.write("Training with EM...")
 bitext = [[sentence.strip().split() for sentence in pair] for pair in zip(open(f_data), open(e_data))][:opts.num_sents]
 
 e_count = defaultdict(int)
+f_count = defaultdict(int)
 fe_count = defaultdict(int)
 
 # Dictionary for mapping to word and word to index which corresponds to place in matrix
@@ -37,6 +38,7 @@ e_idx = 0 # idx of the eng words & serves as size
 for (n, (f, e)) in enumerate(bitext):
     for f_i in set(f):
         if f_i not in f_correspondance.keys():
+            f_count[f_i] += 1
             f_correspondance[f_i] = f_idx
             f_idx += 1
 
@@ -47,16 +49,8 @@ for (n, (f, e)) in enumerate(bitext):
                 e_correspondance[e_i] = e_idx
                 e_idx += 1
 
-
-    for e_sentence in e:
-        for e_i in set(e_sentence):
-            e_count[e_i] += 0
-
-
-
-
 # Create theta matrix and fill uniformly
-theta = np.full((f_idx, e_idx), 1/e_idx)
+theta = np.full((f_idx, e_idx), 1/f_idx)
 
 # For lookup later
 e_key_list = list(e_correspondance.keys())
@@ -70,54 +64,47 @@ null_constant = 1 # amount of null words added to each source sentence
 
 # 2. assign probabilities to the missing data
 iter = 0
-while iter < 4:
+while iter < 6:
+    # RESET pairs
     for key in fe_count.keys():
         fe_count[key] = 0
 
+    # RESET total(f) ,, (e | f) so for me it is ( f | e ) so reset total e
+    for key in f_count.keys(): # for all sent pairs set total_s [e] = 0
+        f_count[key] = 0
+
+    # For all sentence pairs
     for (n, (f, e)) in enumerate(bitext):
         # f.insert(0, "NULL")
         # e.insert(0, "NULL")
-        for key in e_count.keys(): # for all sent pairs set total_s [e] = 0
+
+        for key in e_count.keys():
             e_count[key] = 0
+        # set total_s(e) so f here count_f
 
         for f_i in set(f):
+            matrix_f_i = f_correspondance[f_i]
             for e_j in set(e):
-                matrix_f_i = f_correspondance[f_i]
+                # total_s(e) += t(e|f)
                 matrix_e_j = e_correspondance[e_j]
-                if e_j not in e_count.keys():
-                    sys.stdout.write(e_j, "not in e count.")
-                    if (f_i, e_j) not in fe_count.keys():
-                        print("Pair not in the count")
-                    exit(-1)
                 e_count[e_j] += theta[matrix_f_i][matrix_e_j]
-                fe_count[(f_i, e_j)] += theta[matrix_f_i][matrix_e_j] / e_count[e_j]
 
-# 3. estimate model parameters from completed data
-#     # Iterate through the matrix row by col
-#     row = 0
-#     col = 0
-#
-#     num_rows = theta.shape[0] # french word
-#     num_cols = theta.shape[1] # english word
-#     while row < num_rows:
-#         f_i = f_key_list[f_val_list.index(row)]
-#         while col < num_cols:
-#             e_j = e_key_list[e_val_list.index(col)]
-#             print("E_j is", e_j)
-#             print("Pair count: ", fe_count[(f_i, e_j)])
-#
-#             theta[row][col] = fe_count[(f_i, e_j)] / e_count[e_j] # fe_count[(f_i, e_j)] + null_constant / (e_count[f_i] + null_constant * e_idx)
-#             col += 1
-#         row += 1
-#
-    # print("Keys in e count: ", len(e_count.keys()))
-    for (n, (f, e)) in enumerate(bitext):
         for f_i in set(f):
+            matrix_f_i = f_correspondance[f_i]
             for e_j in set(e):
-                matrix_f_i = f_correspondance[f_i]
+                #pair count += t(e|f) / total_s(e)
+                #total(f) += ^
                 matrix_e_j = e_correspondance[e_j]
+                fe_count[(f_i, e_j)] += theta[matrix_f_i][matrix_e_j] / e_count[e_j]
+                f_count[f_i] += theta[matrix_f_i][matrix_e_j] / e_count[e_j]
 
-                theta[matrix_f_i][matrix_e_j] = fe_count[(f_i, e_j)] / e_count[e_j]
+    # 3. estimate model parameters from completed data
+    for f_i in set(f):
+        for e_j in set(e):
+            matrix_f_i = f_correspondance[f_i]
+            matrix_e_j = e_correspondance[e_j]
+
+            theta[matrix_f_i][matrix_e_j] = fe_count[(f_i, e_j)] / f_count[f_i]
     iter += 1
 
 
@@ -142,14 +129,14 @@ for (f, e) in bitext:
             matrix_f_i = f_correspondance[f_i]
             matrix_e_j = e_correspondance[e_j]
             weight = theta[matrix_f_i][matrix_e_j]
-            print("Weight", weight, j)
+            # print("Weight", weight, j)
             if weight > largest:
                 largest = weight
                 subscript = j
 
         if subscript != -1:
             sys.stdout.write("%i-%i " % (i, subscript))
-        sys.stdout.write("\n")
+    sys.stdout.write("\n")
 
 # Referenced http://mt-class.org/jhu/assets/papers/alopez-model1-tutorial.pdf
 # and pseudocode from https://www.cis.uni-muenchen.de/~fraser/readinggroup/model1.html
@@ -169,3 +156,24 @@ for (f, e) in bitext:
 #    for all f
 #      for all e
 #        t(e|f) = count(e|f) / total(f)
+
+
+# 3. estimate model parameters from completed data
+#     # Iterate through the matrix row by col
+#     row = 0
+#     col = 0
+#
+#     num_rows = theta.shape[0] # french word
+#     num_cols = theta.shape[1] # english word
+#     while row < num_rows:
+#         f_i = f_key_list[f_val_list.index(row)]
+#         while col < num_cols:
+#             e_j = e_key_list[e_val_list.index(col)]
+#             print("E_j is", e_j)
+#             print("Pair count: ", fe_count[(f_i, e_j)])
+#
+#             theta[row][col] = fe_count[(f_i, e_j)] / e_count[e_j] # fe_count[(f_i, e_j)] + null_constant / (e_count[f_i] + null_constant * e_idx)
+#             col += 1
+#         row += 1
+#
+        # print("Keys in e count: ", len(e_count.keys()))
