@@ -37,8 +37,8 @@ e_idx = 0 # idx of the eng words & serves as size
 # Iterate over data and generate vocabulary
 for (n, (f, e)) in enumerate(bitext):
     for f_i in set(f):
+        f_count[f_i] += 1
         if f_i not in f_correspondance.keys():
-            f_count[f_i] += 1
             f_correspondance[f_i] = f_idx
             f_idx += 1
 
@@ -99,8 +99,8 @@ while iter < 6:
                 f_count[f_i] += theta[matrix_f_i][matrix_e_j] / e_count[e_j]
 
     # 3. estimate model parameters from completed data
-    for f_i in set(f):
-        for e_j in set(e):
+    for f_i in f_count.keys():
+        for e_j in e_count.keys():
             matrix_f_i = f_correspondance[f_i]
             matrix_e_j = e_correspondance[e_j]
 
