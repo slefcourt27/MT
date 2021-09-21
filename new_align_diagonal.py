@@ -28,11 +28,11 @@ e_correspondance = {}
 f_correspondance = {}
 
 # Add null word
-# e_correspondance['NULL'] = 0
-# f_correspondance['NULL'] = 0
+e_correspondance['NULL'] = 0
+f_correspondance['NULL'] = 0
 
-f_idx = 0 # idx of the french word and serves as size
-e_idx = 0 # idx of the eng words & serves as size
+f_idx = 1 # idx of the french word and serves as size
+e_idx = 1 # idx of the eng words & serves as size
 
 # Iterate over data and generate vocabulary
 for (n, (f, e)) in enumerate(bitext):
@@ -75,9 +75,6 @@ while iter < 6:
 
     # For all sentence pairs
     for (n, (f, e)) in enumerate(bitext):
-        # f.insert(0, "NULL")
-        # e.insert(0, "NULL")
-
         for key in e_count.keys():
             e_count[key] = 0
         # set total_s(e) so f here count_f
@@ -104,7 +101,8 @@ while iter < 6:
             matrix_f_i = f_correspondance[f_i]
             matrix_e_j = e_correspondance[e_j]
 
-            theta[matrix_f_i][matrix_e_j] = fe_count[(f_i, e_j)] / f_count[f_i]
+            theta[matrix_f_i][matrix_e_j] = fe_count[(f_i, e_j)] + null_constant / (f_count[f_i] + null_constant * e_idx)
+
     iter += 1
 
 
@@ -116,13 +114,16 @@ while iter < 6:
 # Decoding function
 # TODO: NULL at 0 position
 for (f, e) in bitext:
-    # f.insert(0, "NULL")
-    # e.insert(0, "NULL")
     # Using the dictionary , if f_i is in the key, select the max out of all
     for (i, f_i) in enumerate(f):
+        if i == 0:
+            continue
         largest = 0
         subscript = -1
         for (j, e_j) in enumerate(e):
+            if j == 0:
+                continue
+
             if (f_i, e_j) not in fe_count.keys():
                 continue
 
@@ -130,12 +131,13 @@ for (f, e) in bitext:
             matrix_e_j = e_correspondance[e_j]
             weight = theta[matrix_f_i][matrix_e_j]
             # print("Weight", weight, j)
-            if weight > largest:
+            if weight > largest and weight > theta[matrix_f_i][0]:
                 largest = weight
                 subscript = j
 
-        if subscript != -1:
-            sys.stdout.write("%i-%i " % (i, subscript))
+
+        # if subscript != -1:
+        sys.stdout.write("%i-%i " % (i, subscript))
     sys.stdout.write("\n")
 
 # Referenced http://mt-class.org/jhu/assets/papers/alopez-model1-tutorial.pdf
